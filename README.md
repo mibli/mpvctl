@@ -2,10 +2,10 @@ MPVCTL
 ======
 
 mpvctl is a simple program that intends to help manage mpv playback globally by
-taking adventage of its ipc feature.
+taking adventage of its ipc feature, and letting you preserve settings through
+configuration.
 
-currently only volume control is implemented, more things will come soon (in a
-low priority).
+Currently only volume control is implemented (but it saves it and allows you to listen your music in background while watching your youtube video without sound fights, while enjoying your favourite ALSA), more things will come soon (in a low priority).
 Feel free to build upon, you can mention me tho ;).
 
 Configuration
@@ -28,7 +28,7 @@ So aside from that you need mpv to create ipc socket for you. Do that by
 specyfying `input-ipc-server` in the section you provided.
 
 Let me show you! (`mpv.conf`)
-```cfg
+```
 ... defaults (no we don't use them
 
 [ytv]
