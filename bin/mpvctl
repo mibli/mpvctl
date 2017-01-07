@@ -14,25 +14,28 @@ function config_property_find()
     sed_cmd="/^$2=/="
     (( $# == 3 )) && sed_cmd="/^\\[$2\\]/,/^\\[.*\\]/ {/^$3=/=}"
     sed -n "$sed_cmd" "$1"
+    return $?
 }
 function config_property_get()
 {
     sed_cmd="s/^$2=\\(.*\\)$/\\1/p"
     (( $# == 3 )) && sed_cmd="/^\\[$2\]/,/^\\[.*\\]/ s/^$3=\\(.*\\)$/\\1/p"
     sed -n "$sed_cmd" "$1"
+    return $?
 }
 function config_property_new()
 {
     sed_cmd="a/$2=$3/"
-    (( $# == 4 )) && sed_cmd="/^\\[$2\]/ a/$3=$4/"
+    (( $# == 4 )) && sed_cmd="/^\\[$2\]/ a$3=$4"
     sed -in "$sed_cmd" "$1"
+    return $?
 }
 function config_property_set()
 {
-    set -x
     sed_cmd="s/^$2=.*$/$2=$3/"
     (( $# == 4 )) && sed_cmd="/^\\[$2\]/,/^\\[.*\\]/ s/^$3=.*$/$3=$4/"
-    sed -in "$sed_cmd" "$1" || config_property_new "$@"
+    sed -in "$sed_cmd" "$1"
+    return $?
 }
 
 # -------------------
@@ -45,22 +48,29 @@ function ipc_property_set()
 }
 function cmd_volume()
 {
-    local volume="$(config_property_get "$mpv_config_path" $mpv_config_section volume)"
+    local cfg_volume="$(config_property_get "$mpv_config_path" $mpv_config_section volume)"
+    local volume=${cfg_volume}
     : ${volume:="$(config_property_get "$mpv_config_path" volume)"}
     : ${volume:="50"}
     local direction=${1:0:1}
     local value="$(egrep -o [0-9]+ <<< "$1")"
     [[ -n "value" ]] || ( echo "Couldn't parse a value"; exit 1 )
     case $direction in
-        +) (( volume += value )) ;;
-        -) (( volume -= value )) ;;
-        *) volume="$value" ;;
+        +) (( value = volume + value )) ;;
+        -) (( value = volume - value )) ;;
+        *) ;;
     esac
+    set -x
     (( volume < 0 )) && volume=0
     (( volume > 100 )) && volume=100
-    ipc_property_set $mpv_ipc_path volume $volume &&
-        config_property_set $mpv_config_path $mpv_config_section volume $volume &&
-            echo "Volume set to $volume"
+    ipc_property_set $mpv_ipc_path volume $value || return 1
+    if [ -n "$cfg_volume" ]; then
+        config_property_set $mpv_config_path $mpv_config_section volume $value
+    else
+        config_property_new $mpv_config_path $mpv_config_section volume $value
+    fi
+    echo "Volume set to $value"
+    return 0
 }
 
 # ----------------------------
