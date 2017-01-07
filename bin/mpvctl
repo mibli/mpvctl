@@ -29,8 +29,9 @@ function config_property_new()
 }
 function config_property_set()
 {
-    sed_cmd="s/^$2=.*$/$3/"
-    (( $# == 4 )) && sed_cmd="/^\\[$2\]/,/^\\[.*\\]/ s/^$3=(.*)$/$3/"
+    set -x
+    sed_cmd="s/^$2=.*$/$2=$3/"
+    (( $# == 4 )) && sed_cmd="/^\\[$2\]/,/^\\[.*\\]/ s/^$3=.*$/$3=$4/"
     sed -in "$sed_cmd" "$1" || config_property_new "$@"
 }
 
