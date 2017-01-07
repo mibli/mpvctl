@@ -1,0 +1,111 @@
+#!/bin/bash
+
+# ---------------
+# CONFIG HANDLING
+function config_find()
+{
+    while read -r path; do
+        [ -f "$path" ] && { echo "$path"; return $?; }
+    done
+}
+function config_property_find()
+{
+    # usage find_property path-to-config [section] value
+    sed_cmd="/^$2=/="
+    (( $# == 3 )) && sed_cmd="/^\\[$2\\]/,/^\\[.*\\]/ {/^$3=/=}"
+    sed -n "$sed_cmd" "$1"
+}
+function config_property_get()
+{
+    sed_cmd="s/^$2=\\(.*\\)$/\\1/p"
+    (( $# == 3 )) && sed_cmd="/^\\[$2\]/,/^\\[.*\\]/ s/^$3=\\(.*\\)$/\\1/p"
+    sed -n "$sed_cmd" "$1"
+}
+function config_property_new()
+{
+    sed_cmd="a/$2=$3/"
+    (( $# == 4 )) && sed_cmd="/^\\[$2\]/ a/$3=$4/"
+    sed -in "$sed_cmd" "$1"
+}
+function config_property_set()
+{
+    sed_cmd="s/^$2=.*$/$3/"
+    (( $# == 4 )) && sed_cmd="/^\\[$2\]/,/^\\[.*\\]/ s/^$3=(.*)$/$3/"
+    sed -in "$sed_cmd" "$1" || config_property_new "$@"
+}
+
+# -------------------
+# MPV CONTROL RELATED
+function ipc_property_set()
+{
+    cmd_string='{ "command": ["set_property_string", "'$2'", "'$3'"] }'
+    socat - "$1" <<< $cmd_string | grep '"error":"success"'
+    return $?
+}
+function cmd_volume()
+{
+    local volume="$(config_property_get "$mpv_config_path" $mpv_config_section volume)"
+    : ${volume:="$(config_property_get "$mpv_config_path" volume)"}
+    : ${volume:="50"}
+    local direction=${1:0:1}
+    local value="$(egrep -o [0-9]+ <<< "$1")"
+    [[ -n "value" ]] || ( echo "Couldn't parse a value"; exit 1 )
+    case $direction in
+        +) (( volume += value )) ;;
+        -) (( volume -= value )) ;;
+        *) volume="$value" ;;
+    esac
+    (( volume < 0 )) && volume=0
+    (( volume > 100 )) && volume=100
+    ipc_property_set $mpv_ipc_path volume $volume &&
+        config_property_set $mpv_config_path $mpv_config_section volume $volume &&
+            echo "Volume set to $volume"
+}
+
+# ----------------------------
+# RUNTIME OPTIONS AND DEFAULTS
+function main()
+{
+    # OPTIONS
+    while getopts ":c:S:s" opt; do
+        case $opt in
+            c) config_path="$OPTARG" ;;
+            S) mpv_config_section="$OPTARG" ;;
+            s) mpv_ipc_path="$OPTARG" ;;
+            ?,h)
+                echo << EOF
+Usage:
+    $0 [-c] [-s] command [value]
+        -c  config file (default: ~/.config/mpv/mpv.conf)
+        -S  config section (default: none)
+        -s  socket file (default from config)
+    Supported commands:
+        volume [(+|-)]volume
+EOF
+                ;;
+            \?) break ;;
+        esac
+        shift
+    done
+
+    # DEFAULTS
+    set -e
+    local cmd="cmd_$1"; shift
+    if [ -z "$config_path" ]; then
+        local search_paths=(
+            "$HOME/.mpvctlrc"
+            "$HOME/config/mpv/mpvctl.conf"
+            "/etc/mpvctlrc"
+        )
+        config_path="$(for line in "${search_paths[@]}"; do echo "$line"; done | config_find)"
+    fi
+    : ${mpv_config_path:="$(echo "$(eval echo "$(config_property_get $config_path mpv-config)")")"}
+    : ${mpv_config_path:="$HOME/.config/mpv/mpv.conf"}
+    : ${mpv_config_section:="$(config_property_get $config_path mpv-section)"}
+    : ${mpv_ipc_path:="$(config_property_get $config_path mpv-ipc)"}
+    : ${mpv_ipc_path:="$(config_property_get $mpv_config_path $mpv_config_section input-ipc-server)"}
+
+    # ZENPOU!!
+    $cmd "$@"
+}
+main "$@"
