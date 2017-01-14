@@ -40,9 +40,21 @@ function config_property_set()
 
 # -------------------
 # MPV CONTROL RELATED
-function ipc_property_set()
+function ipc_property_get()
+{
+    cmd_string='{ "command": ["get_property", "'$2'"] }'
+    socat - "$1" <<< $cmd_string | grep '"error":"success"' | sed 's/^.*\"data\":\(.*\),.*$/\1/'
+    return $?
+}
+function ipc_property_string_set()
 {
     cmd_string='{ "command": ["set_property_string", "'$2'", "'$3'"] }'
+    socat - "$1" <<< $cmd_string | grep '"error":"success"'
+    return $?
+}
+function ipc_property_set()
+{
+    cmd_string='{ "command": ["set_property", "'$2'", '$3'] }'
     socat - "$1" <<< $cmd_string | grep '"error":"success"'
     return $?
 }
@@ -63,13 +75,25 @@ function cmd_volume()
     set -x
     (( volume < 0 )) && volume=0
     (( volume > 100 )) && volume=100
-    ipc_property_set $mpv_ipc_path volume $value || return 1
+    ipc_property_string_set $mpv_ipc_path volume $value || return 1
     if [ -n "$cfg_volume" ]; then
         config_property_set $mpv_config_path $mpv_config_section volume $value
     else
         config_property_new $mpv_config_path $mpv_config_section volume $value
     fi
     echo "Volume set to $value"
+    return 0
+}
+function cmd_pause()
+{
+    local pause=
+    if [[ "$#" -eq 0 ]]; then
+        local pause="$(ipc_property_get "$mpv_ipc_path" pause)"
+        [[ "$pause" == true ]] && pause=false || pause=true
+    else
+        pause=$1
+    fi
+    ipc_property_set "$mpv_ipc_path" pause $pause
     return 0
 }
 

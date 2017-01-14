@@ -51,9 +51,12 @@ Let's skip the options.
 #### Commands
 
 * volume [+|-]value
-    right now the only command supported. If +/- are present then the command
-    will increase/decrease volume. Otherwise the volume will be set to given
-    value
+    If +/- are present then the command will increase/decrease volume. Otherwise
+    the volume will be set to given value. (persistant)
+
+* pause [true|false]
+    If argument is given, pause state will be set to given value, otherwise
+    pause will be toggled. (non persistant)
 
 #### Example
 
