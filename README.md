@@ -58,6 +58,13 @@ Let's skip the options.
     If argument is given, pause state will be set to given value, otherwise
     pause will be toggled. (non persistant)
 
+* seek [+|-]seconds
+    If +/- are present then the command will seek forward/backward. Otherwise
+    + is assumend. (non persistant)
+
+* quit
+    Quit mpv
+
 #### Example
 
 ```bash

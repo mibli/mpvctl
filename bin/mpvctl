@@ -40,6 +40,26 @@ function config_property_set()
 
 # -------------------
 # MPV CONTROL RELATED
+function ipc_command()
+{
+    if [[ $# -gt 2 ]]; then
+        local cmd_string='{ "command": ["'$2'", '$3'] }'
+    else
+        local cmd_string='{ "command": ["'$2'"] }'
+    fi
+    socat - "$1" <<< $cmd_string | grep '"error":"success"' | sed 's/^.*\"data\":\(.*\),.*$/\1/'
+    return $?
+}
+function ipc_command_string()
+{
+    if [[ $# -gt 2 ]]; then
+        local cmd_string='{ "command": ["'$2'", "'$3'"] }'
+    else
+        local cmd_string='{ "command": ["'$2'"] }'
+    fi
+    socat - "$1" <<< $cmd_string | grep '"error":"success"' | sed 's/^.*\"data\":\(.*\),.*$/\1/'
+    return $?
+}
 function ipc_property_get()
 {
     cmd_string='{ "command": ["get_property", "'$2'"] }'
@@ -94,7 +114,17 @@ function cmd_pause()
         pause=$1
     fi
     ipc_property_set "$mpv_ipc_path" pause $pause
-    return 0
+    return $?
+}
+function cmd_seek()
+{
+    ipc_command_string "$mpv_ipc_path" seek $1
+    return $?
+}
+function cmd_quit()
+{
+    ipc_command "$mpv_ipc_path" quit
+    return $?
 }
 
 # ----------------------------
@@ -142,5 +172,6 @@ EOF
 
     # ZENPOU!!
     $cmd "$@"
+    return $?
 }
 main "$@"
